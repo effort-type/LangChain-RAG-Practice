@@ -3,31 +3,32 @@ def docs_load():
     문서 읽는 함수
     """
 
-    from langchain_community.document_loaders import TextLoader
+    from langchain.document_loaders import PyPDFLoader
 
-    loader = TextLoader("corpus/정시 모집요강(동의대) 전처리 결과.txt", encoding="utf-8").load()
+    loader = PyPDFLoader("corpus/치과교정용 스마트 페이스마스크를 활용한 스마트 교정 관리.pdf").load()
 
     print(loader)
 
     return loader
 
 
-def c_text_split(corpus):
+def rc_text_split(corpus):
     """
     CharacterTextSplitter를 사용하여 문서를 분할하도록 하는 함수
     :param corpus: 전처리 완료된 말뭉치
     :return: 분리된 청크
     """
 
-    from langchain.text_splitter import CharacterTextSplitter
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-    c_text_splitter = CharacterTextSplitter.from_tiktoken_encoder(
-        separator="---",
-        chunk_size=1500,
-        chunk_overlap=0,
+    rc_text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+        separators=["---", "\n\n", "\n"],
+        chunk_size=2000,
+        chunk_overlap=500,
+        model_name="gpt-4o"  # o200k_base
     )
 
-    text_documents = c_text_splitter.split_documents(corpus)
+    text_documents = rc_text_splitter.split_documents(corpus)
 
     return text_documents
 
@@ -135,11 +136,8 @@ def db_qna(llm, db, query, ):
     from langchain_core.output_parsers import StrOutputParser
 
     db = db.as_retriever(
-        # search_kwargs={'k': 3},
         search_type="mmr",
-        search_kwargs={'k': 3, 'fetch_k': 10},
-        # search_type='similarity_score_threshold',
-        # search_kwargs={'k': 3, 'score_threshold': 0.45},
+        search_kwargs={'k': 3, 'fetch_k': 5}
     )
 
     prompt = ChatPromptTemplate.from_messages(
@@ -149,7 +147,6 @@ def db_qna(llm, db, query, ):
                 """
                 You are a specialized AI for question-and-answer tasks.
                 You must answer questions based solely on the Context provided.
-                If no Context is provided, you must instruct to inquire at "https://ipsi.deu.ac.kr/main.do".
 
                 Context: {context}
                 """,
@@ -182,7 +179,7 @@ def run():
     loader = docs_load()
 
     # 문서 분할
-    chunk = c_text_split(loader)
+    chunk = rc_text_split(loader)
 
     print(chunk)
 
